@@ -20,7 +20,7 @@ answers "what happened" and nothing answered "what is half-finished right now".
 | **Book Chat** | Streaming, persistent history, per-chapter summaries, page citations for PDFs. Web + mobile at parity. |
 | **Observability** | OpenTelemetry → Aspire, plus Sentry on API + Worker with LLM/provider-routing spans. Mobile Sentry is **armed** since 2026-09-03 — project `textstack-mobile` in the `textstack` org, DSN supplied as an EAS environment variable (`EXPO_PUBLIC_SENTRY_DSN`, production + preview) rather than a repo file, so it reaches OTA bundles as well as store builds. |
 | **Entitlements** | `UserTier { Guest, Free, Supporter, Staff }`, config-driven quotas — now including `AiEnabled` and `DailyEnrichmentCap`, enforced server-side by `RequireAiAccount()` (403 `account_required`). |
-| **Guest sessions** | Web and mobile both mint an anonymous `User` row on demand; the read → save → review loop works with no account, and registering promotes that row in place. [ADR-014](01-architecture/adr/ADR-014-guest-sessions.md). |
+| **Guest sessions** | Web and mobile both mint an anonymous `User` row on demand; the read → save → review loop works with no account, and registering promotes that row in place. [ADR-014](01-architecture/adr/ADR-014-guest-sessions.md). Walked end to end on Android on 2026-09-06 with every request logged ([QA-005 report](qa/reports/2026-09-06-android-guest-loop.md)): promotion-in-place proven by the account's `createdAt` matching the guest mint, both AI walls firing zero requests, and the book still opening when the mint is rate-limited. |
 | **SEO / SSG** | Prerendered pages, sitemap, IndexNow. Four incidents since 2026-08-11 ([dead five weeks](incidents/2026-08-11-ssg-dead-five-weeks.md), [deploy wiped a running rebuild](incidents/2026-08-31-deploy-wiped-a-running-ssg-rebuild.md), [worker lost its output path](incidents/2026-09-01-ssg-worker-lost-its-output-path.md), [a prompt stranded the swap](incidents/2026-09-02-corepack-prompt-stranded-the-ssg.md)), each invisible from outside because humans get the SPA and it renders fine. Now watched three ways: the deploy refuses to promote a rebuild that lost its files, `/health/ready` reports rebuild age and failure, and the health check asks a crawler's question every five minutes. |
 | **Mobile** | Android on Play Internal Testing (`versionCode 24`). OTA via `expo-updates`, published automatically on merge — and refused automatically when the runtime fingerprint has moved. |
 | **Build & deps** | One Node version in `.nvmrc` (24.20.0), enforced across CI, four Dockerfiles and the deploy runner. One pnpm workspace with a version catalog — the JS answer to `Directory.Packages.props`. Weekly dependency refresh by pull request. |
@@ -82,6 +82,21 @@ someone's memory.
 - **PDF highlights have no context and never will.** Reflow highlights store ~30 characters either side
   in their anchor, so they gained context retroactively. A PDF-rect anchor carries only `exact`; those
   render as the passage alone. Capturing surrounding text at PDF-highlight time is the open follow-up.
+- **A word tap can still dispatch two messages one character apart.** The reader bridge sends the tap
+  and Android's own `selectionchange`; the exact-match dedupe only collapses identical strings, and
+  the single-flight added in #561 keys on the text, so a pair differing by one character is still two
+  translations. Suspected cause: `WORD_RE` carries a straight apostrophe while extraction writes curly
+  ones — but the obvious guard re-breaks drag-to-extend, fixed directly above it. Measure both
+  dispatched strings before changing anything.
+- **`ReviewCardDto.reviewMode` is a dead field.** No client reads it, and one of its two declared
+  values (`'context'`) cannot reach the wire — `ReviewCardBuilder` rewrites every context card to
+  `multiple_choice`. Same shape as `selfAssessment` below. Documented on the field in
+  `packages/shared/src/types/api.ts`; removing it touches two DTO copies plus the server contract and
+  needs its own slice.
+- **Four QA accounts and their guest rows sit on production** — `qa-guest-{a,b,c,d}-20260906@textstack.app`,
+  created during the QA-005 pass, plus several abandoned guest rows that `GuestCleanupWorker` will not
+  prune because they hold vocabulary. The findings they were created for are closed (#561, #562), so
+  they can go.
 - **`selfAssessment` is captured and discarded.** The three-button card ("Forgot / Almost / Knew") sends
   the choice, `SubmitReviewRequest` accepts it, and no server code reads it — so "Almost" differs from
   "Knew" only in the boolean derived from it. Either make the middle button mean something, or drop it.

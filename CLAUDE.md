@@ -222,11 +222,12 @@ Upload EPUB/PDF → BookFile (stored) → IngestionJob (queued)
 **Vocabulary SRS**: Spaced repetition vocabulary builder integrated into the reader.
 - **Entity**: `VocabularyWord` — word, translation, definition, sentence, bookTitle, distractors (JSON), hint (LLM-generated), SRS fields (stage, interval, consecutiveCorrect, nextReviewAt)
 - **Review entity**: `VocabularyReview` — tracks each answer (isCorrect, responseTimeMs, reviewMode)
-- **5 SRS stages**: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4). Logic in `Application/Vocabulary/SrsEngine.cs`
-- **2 review modes**: `multiple_choice` (all stages, Blitz + Context Cloze), `classic` (flashcard with self-assessment). Typing mode removed.
+- **5 SRS stages**: New(0) → Recognition(1) → Recall(2) → Context(3) → Mastered(4). Logic in `backend/src/Vocabulary/TextStack.Vocabulary/SrsEngine.cs`
+- **One card shape on the wire**: `ReviewCardBuilder` emits `multiple_choice` for every card. `SrsEngine.GetReviewMode` still returns `"context"` for stages 3-4 with a sentence, but the builder gives those MC options and rewrites the mode — context cloze *is* MC, with the sentence as the prompt. Typed recall is gone. `ReviewCardDto.reviewMode` is therefore vestigial and no client reads it (see the comment on the field in `packages/shared/src/types/api.ts`).
+- **Review style is a client choice**, not a server one: `ReviewMode = 'blitz' | 'classic'` (`packages/shared/src/vocabularyConstants.ts`) — Blitz renders the MC card, Flashcards renders self-assessment. Persisted per client (`apps/mobile/src/lib/reviewMode.ts`, web `localStorage['practiceMode']`).
 - **MC distractors + hint + explanation**: Ollama LLM (`gemma4:e2b`) generates 5 distractors + hint + 2-3 sentence explanation (in native language) per word at save time. Stored in `Distractors` (JSON), `Hint` (varchar 500), `Explanation` (varchar 1000). Fallback: random words from user's vocab pool + hardcoded list. Generator: `Vocabulary/TextStack.Vocabulary/DistractorGenerator.cs`
 - **Ollama**: Docker service (`ollama/ollama`), config: `Ollama:BaseUrl`, `Ollama:Model`, `Ollama:TimeoutSeconds` (default 30s). Fire-and-forget generation via `IServiceScopeFactory` after word save
-- **MC fallback cascade**: definition → translation → blank sentence (if LLM distractors exist) → downgrade to context/typed_recall
+- **MC prompt cascade** (client-side, `MultipleChoiceCard`): blank sentence → definition → translation. No downgrade path — there is nothing left to downgrade to
 - **Frontend**: `VocabularyPage.tsx` (word list, filters, search, stats), `VocabularyReviewPage.tsx` (review session), components in `components/vocabulary/`
 - **API**: `POST /me/vocabulary/words` (save), `GET /me/vocabulary/words` (list), `DELETE /me/vocabulary/words/{id}`, `PUT /me/vocabulary/words/{id}`, `GET /me/vocabulary/review` (queue), `POST /me/vocabulary/review` (submit), `GET /me/vocabulary/stats`
 
@@ -344,8 +345,8 @@ Upload EPUB/PDF → BookFile (stored) → IngestionJob (queued)
 | Reading Hooks | `apps/web/src/hooks/useReadingSession.ts` |
 | Achievements | `backend/src/Application/ReadingTracking/AchievementChecker.cs` |
 | Vocabulary API | `backend/src/Api/Endpoints/VocabularyEndpoints.cs` |
-| Vocabulary SRS | `backend/src/Application/Vocabulary/SrsEngine.cs` |
-| Distractor Gen | `backend/src/Api/Endpoints/DistractorGenerator.cs` |
+| Vocabulary SRS | `backend/src/Vocabulary/TextStack.Vocabulary/SrsEngine.cs`, `ReviewCardBuilder.cs` |
+| Distractor Gen | `backend/src/Vocabulary/TextStack.Vocabulary/DistractorGenerator.cs` |
 | Vocabulary Page | `apps/web/src/pages/VocabularyPage.tsx` |
 | Vocab Review | `apps/web/src/pages/VocabularyReviewPage.tsx` |
 | Vocab Components | `apps/web/src/components/vocabulary/` |

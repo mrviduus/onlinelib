@@ -14,27 +14,45 @@ Review page → GET /me/vocabulary/review → SRS queue (due words)
 
 ## SRS Stages
 
-| Stage | Name | Review Mode | Interval |
-|-------|------|------------|----------|
-| 0 | New | multiple_choice | immediate |
-| 1 | Recognition | multiple_choice | 1 day |
-| 2 | Recall | typed_recall | 3 days |
-| 3 | Context | context (fill-in-blank) | 7 days |
-| 4 | Mastered | typed_recall or context | 14d → 60d (2x multiplier) |
+| Stage | Name | `GetReviewMode` returns | Card the reader gets | Interval |
+|-------|------|------------------------|----------------------|----------|
+| 0 | New | multiple_choice | MC | immediate |
+| 1 | Recognition | multiple_choice | MC | 1 day |
+| 2 | Recall | multiple_choice | MC | 3 days |
+| 3 | Context | context *if the word has a sentence*, else multiple_choice | MC, prompted by the cloze sentence | 7 days |
+| 4 | Mastered | same as stage 3 | same as stage 3 | 14d → 60d (2x multiplier) |
 
 **Promotion**: Stage 0 needs 1 correct, stages 1-3 need 2 consecutive correct to advance.
-**Demotion**: Wrong answer drops 1 stage (mastered drops to recall, not context).
+**Demotion**: Wrong answer drops 1 stage (mastered drops to recall, not context); stages 0-1 stay
+put and retry in 12h.
+**Auto-retire**: three consecutive correct at Mastered with an interval ≥14d retires the word from
+the queue. A reader tap unretires it at stage 3.
 
-Logic: `backend/src/Application/Vocabulary/SrsEngine.cs`
+Logic: `backend/src/Vocabulary/TextStack.Vocabulary/SrsEngine.cs`
 
 ## Review Modes
 
-1. **multiple_choice** — Show definition/translation, pick correct word from 4 options
-2. **typed_recall** — Show definition/translation, type the word
-3. **context** — Show sentence with blank, type the missing word
+**The server emits one card shape.** `ReviewCardBuilder` builds four MC options for every card,
+including the context-cloze ones, and rewrites their mode to `multiple_choice` on the way out —
+so `ReviewCardDto.reviewMode` is always `"multiple_choice"` over the wire. Typed recall was removed;
+`context` survives only as a *prompt* (the sentence with the word blanked) and as a value written to
+`vocabulary_reviews.review_mode`, which is computed straight from `SrsEngine.GetReviewMode` and does
+still record `context`. See the comment on the field in `packages/shared/src/types/api.ts`.
 
-### MC Fallback Cascade
-When building MC prompt: definition → translation → blank sentence (if LLM distractors exist) → downgrade to context/typed_recall.
+**The review style is the client's choice**, and shares none of those names:
+`ReviewMode = 'blitz' | 'classic'` (`packages/shared/src/vocabularyConstants.ts`).
+
+1. **blitz** — the MC card: prompt plus four options.
+2. **classic** — flashcard, self-assessed (Forgot / Almost / Knew). The default.
+
+Persisted per client: `apps/mobile/src/lib/reviewMode.ts` (AsyncStorage) and web
+`localStorage['practiceMode']`. Derive it from route params as a plain value and hand *that* to
+`startSession` — reading hook state during startup is how #558 shipped, where Blitz was selected and
+Flashcards ran every time.
+
+### MC prompt cascade
+`MultipleChoiceCard` renders `blankSentence || definition || translation`. There is no downgrade path
+— there is no longer another mode to downgrade to.
 
 ## Ollama LLM Distractors
 
@@ -89,9 +107,9 @@ docker compose exec ollama ollama pull gemma4:e2b
 |------|---------|
 | `pages/VocabularyPage.tsx` | Word list, filters, stats cards |
 | `pages/VocabularyReviewPage.tsx` | Review session orchestrator |
-| `components/vocabulary/MultipleChoiceCard.tsx` | MC quiz card |
-| `components/vocabulary/TypedRecallCard.tsx` | Type-the-word card |
-| `components/vocabulary/ContextCard.tsx` | Fill-in-the-blank card |
+| `components/vocabulary/MultipleChoiceCard.tsx` | MC quiz card (Blitz) — also renders the context cloze |
+| `components/vocabulary/FlashCard.tsx` | Self-assessed flashcard (Classic) |
+| `components/vocabulary/NewWordCard.tsx` | First sight of a word before its first review |
 | `components/vocabulary/ReviewFeedback.tsx` | Correct/wrong feedback + stage change |
 | `components/vocabulary/SessionSummary.tsx` | End-of-session stats |
 | `hooks/useVocabulary.ts` | Word CRUD + filtering |

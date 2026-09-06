@@ -53,9 +53,10 @@ Read §7 first if anything behaves oddly — several failures below have a known
 - [ ] Have an unused email ready for §4 (registration).
 - [ ] Have a **second, existing** account with at least one saved vocabulary word for §5 (merge on
       login). The prod QA account is in the project memory note on mobile QA.
-- [ ] Ability to watch traffic (Charles, mitmproxy, or `adb logcat` filtered on the API host) for
-      §1 step 3 and §6. Without it, those two steps cannot be verified — say so in the results
-      rather than ticking them.
+- [ ] Ability to watch traffic (Charles, mitmproxy, or a small local proxy behind `adb reverse`) for
+      §1 step 3, **§4b** and §6. Without it, those steps cannot be verified — say so in the results
+      rather than ticking them. §4b in particular has no on-screen tell: the request log is the only
+      thing that distinguishes a real run from a wasted hour.
 
 ---
 
@@ -103,8 +104,11 @@ Read §7 first if anything behaves oddly — several failures below have a known
 **Device-only checks in this step:**
 - [ ] The language list **scrolls** inside the sheet. (A `FlatList` inside a `Modal` is a known
       React Native gesture pass-through hazard.)
-- [ ] The sheet is usable on a **small screen and in landscape** — `styles.sheet` has no
-      `maxHeight`. Try a long multi-word selection, which is the worst case.
+- [ ] The sheet is usable on a **small screen** — `styles.sheet` has no `maxHeight`. Try a long
+      multi-word selection, which is the worst case. Force one with
+      `adb shell wm size 720x1280 && adb shell wm density 280` (reset with `wm size reset`).
+      *Landscape is **not applicable**: `apps/mobile/app.json` sets `"orientation": "portrait"`, so
+      the app does not rotate — `settings put system user_rotation 1` changes nothing.*
 
 ---
 
@@ -142,16 +146,27 @@ Read §7 first if anything behaves oddly — several failures below have a known
 The bug this guards was invisible: registration answered *success* and silently discarded the data.
 It only appears when the access token has expired, which takes an hour.
 
-1. Fresh install, become a guest, save a word (§1–§3).
+1. Fresh install, become a guest, save a word (§1–§3). Note the mint time.
 2. **Kill the app** and leave it closed for **over an hour** (access tokens live 60 minutes).
-3. Reopen and go **straight** to Profile → Create free account. Do not open a book, do not tap
-   anything that would make a network call first — a call that 401s would refresh the token and
-   mask the bug.
+3. Reopen and reach the register form by a route that makes **no authenticated call**:
+   Discover → **Ask the librarian** → its sign-in wall → **Register**. Measured at zero requests.
+
+   **Not via Profile.** That screen fetches `/me/books/quota` itself, which 401s on the stale token
+   and fires `POST /auth/refresh-mobile` — about two and a half minutes before the register button
+   is reachable. The expired-token condition is destroyed on the way to the form, and nothing on
+   screen says so, so an hour of waiting proves nothing. This is how the first run of this step went
+   (D2).
 
 **Verify**:
+- [ ] **Before pressing Create account, confirm from the request log that no `refresh-mobile` has
+      fired.** Without that line the run is worthless — and it is not observable from the screen.
+      This check is the step; the rest is setup.
 - [ ] Registration succeeds **and the saved word is still there.**
+- [ ] The account's `createdAt` equals the guest mint time — proof the row was promoted, not copied.
 
-> If the word is gone, the merge did not fire. That is D1 and it is critical.
+> If the word is gone, the merge did not fire. That is critical.
+> A proactive `refresh-mobile` immediately before `register` (no 401 preceding it) is **correct** —
+> that is `packages/shared/src/api/tokenExpiry.ts` keeping an expired bearer off the merge call.
 
 ---
 
@@ -188,8 +203,14 @@ It only appears when the access token has expired, which takes an hour.
 
 ## 7. Failure modes with known non-obvious causes
 
-- [ ] **Airplane mode, previously-read book.** Turn on airplane mode and open a book whose chapters
-      are cached. The reader must open in about a second — **not** after a 3-second pause. The gate
+- [ ] **Airplane mode, downloaded book.** The book must have been through the explicit **Download
+      for Offline** action first. *Reading a chapter online does not make it available offline* —
+      a book you have merely read shows "This chapter isn't available offline", and the case then
+      fails for a reason that has nothing to do with the gate. Also stop any logging proxy:
+      `adb reverse` is a loopback forward through adbd and keeps working with the radio off, so
+      airplane mode alone does not take the app offline.
+      With a downloaded book, the reader must open in about a second — **not** after a 3-second
+      pause. The gate
       is designed to give up immediately when the network fails outright; spending the full budget
       means it is waiting on something it should not.
 - [ ] **Rate-limited first launch.** `POST /auth/guest` is limited per IP. If you install several
@@ -236,9 +257,9 @@ It only appears when the access token has expired, which takes an hour.
 | Date | Issue | Status |
 |------|-------|--------|
 | 2026-09-06 | ~~**D1** — word saved while rate-limited is silently discarded~~ | **Withdrawn** — tester error. The toast ("Saving words needs an account — this one wasn't kept") fires for 3.6 s; screenshots were taken after it expired |
-| 2026-09-06 | **D2** — §4b cannot reach its own bug via the Profile route; Profile refreshes the token first. Use Discover → Ask the librarian → Register instead, and check the log for no prior `refresh-mobile` | Open (scenario fix) |
-| 2026-09-06 | **D3** — Blitz review style is selected and persisted but the session still runs Flashcards | Open — [#558](https://github.com/mrviduus/textstack/issues/558) |
-| 2026-09-06 | **D4** — Flashcards mode fetches a dictionary definition it structurally cannot display | Open — [#559](https://github.com/mrviduus/textstack/issues/559) |
+| 2026-09-06 | **D2** — §4b cannot reach its own bug via the Profile route; Profile refreshes the token first | **Closed** — §4b above now routes through Discover → Ask the librarian → Register and requires the request log to show no prior `refresh-mobile` |
+| 2026-09-06 | **D3** — Blitz review style is selected and persisted but the session still runs Flashcards | **Fixed** — [#558](https://github.com/mrviduus/textstack/issues/558) in [#562](https://github.com/mrviduus/textstack/pull/562) |
+| 2026-09-06 | **D4** — Flashcards mode fetches a dictionary definition it structurally cannot display | **Fixed** — [#559](https://github.com/mrviduus/textstack/issues/559) in [#562](https://github.com/mrviduus/textstack/pull/562) |
 
 ---
 

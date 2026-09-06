@@ -307,6 +307,29 @@ export interface ReviewCardDto {
   word: string
   translation: string | null
   definition: string | null
+  /**
+   * Vestigial. **The client owns the review style; this field does not.**
+   *
+   * No runtime code reads it. Cards render from `options` / `correctOptionIndex` /
+   * `blankSentence`; the style a session runs in comes from the client
+   * (`apps/mobile/src/lib/reviewMode.ts`, added in #562, and
+   * `apps/web/src/pages/VocabularyReviewPage.tsx`), whose `ReviewMode` is
+   * `'blitz' | 'classic'` — a different vocabulary that only happens to share the
+   * name. The one place `'context'` is asserted is a unit test of the tutor's
+   * local card projection.
+   *
+   * `'context'` also cannot arrive over the wire. `SrsEngine.GetReviewMode` can
+   * return it for stages 3-4 with a sentence, but `ReviewCardBuilder` builds MC
+   * options for those cards and rewrites the mode to `'multiple_choice'` on the
+   * way out ("Context cloze uses MC UI"). Typed recall was removed; the branch
+   * that would have used the distinction went with it. Both clients still *write*
+   * `'context'` locally when the tutor synthesizes a flashcard from a plan item
+   * (`buildPlanCard`), purely because the field is required.
+   *
+   * Left in place deliberately: removing it is a code change across two DTO
+   * copies (this one and `apps/web/src/api/vocabulary.ts`), the server contract
+   * and the projections, and it belongs in its own slice. Do not build on it.
+   */
   reviewMode: 'multiple_choice' | 'context'
   blankSentence: string | null
   originalSentence: string | null
