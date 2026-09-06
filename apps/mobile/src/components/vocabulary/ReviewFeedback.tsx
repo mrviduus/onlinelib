@@ -29,8 +29,8 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
     // Reset any stale result from the previous card before the new lookup lands.
     setFetchedDef(null)
     dictionaryApi.lookupWord(language, card.word).then(data => {
-      if (cancelled || !data?.meanings?.length) return
-      const parts = data.meanings.slice(0, 3)
+      if (cancelled || !data?.definitions?.length) return
+      const parts = data.definitions.slice(0, 3)
       const defs = parts.map(m =>
         `(${m.partOfSpeech}) ${(m.definitions || []).slice(0, 2).map(d => d.definition).join('; ')}`
       ).join('\n')
