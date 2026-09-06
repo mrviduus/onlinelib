@@ -24,11 +24,44 @@ public class DictionaryCacheSweeper(
 
         var maxAge = TimeSpan.FromDays(Math.Max(1, config.GetValue("Dictionary:CacheMaxAgeDays", 365)));
 
+        ProbeWritable(path);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             Sweep(path, maxAge);
             try { await Task.Delay(SweepInterval, stoppingToken); }
             catch (OperationCanceledException) { return; }
+        }
+    }
+
+    /// <summary>
+    /// Say so, once, at startup if the cache cannot be written.
+    /// </summary>
+    /// <remarks>
+    /// Every cache write is best-effort by design — a broken volume must degrade to "no cache",
+    /// never to a 500 on a word tap. The cost of that choice is silence: the bind mount is created
+    /// by Docker as root, the container runs as uid 1000, and <c>Directory.CreateDirectory</c>
+    /// succeeds trivially on an existing mount point, so the first sign of trouble is an outage
+    /// where the fallback turns out not to exist. That is not hypothetical — it is how this shipped
+    /// the first time, and CI caught it only because one test asked for the same word twice.
+    /// A probe cannot fix the permissions, but it turns a silent absence into a line in the log.
+    /// </remarks>
+    private void ProbeWritable(string path)
+    {
+        var probe = Path.Combine(path, $".writable-probe-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(path);
+            File.WriteAllText(probe, string.Empty);
+            File.Delete(probe);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Dictionary cache at {Path} is not writable — lookups will still work, but there is " +
+                "no fallback when the upstream dictionary is unreachable. On the server this is " +
+                "`make fix-permissions` (the dir must be owned by uid 1000).", path);
+            try { File.Delete(probe); } catch { /* nothing to clean up */ }
         }
     }
 
