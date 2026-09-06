@@ -22,6 +22,7 @@ import { VocabViewSheet } from '../../src/components/vocabulary/VocabViewSheet'
 import { VocabSummaryCard } from '../../src/components/vocabulary/VocabSummaryCard'
 import { buildContextSnippet } from '@textstack/shared'
 import { resolveListScreenState } from '../../src/lib/listScreenState'
+import { DEFAULT_REVIEW_MODE, loadReviewMode, saveReviewMode } from '../../src/lib/reviewMode'
 
 const STAGE_LABELS = ['New', 'Recognition', 'Recall', 'Context', 'Mastered']
 const STAGE_COLORS = ['#9CA3AF', '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981']
@@ -64,7 +65,20 @@ export default function VocabularyScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
-  const [reviewMode, setReviewMode] = useState<ReviewMode>('classic')
+  // Survives a cold start. It used to be plain `useState`, so "the setting
+  // persists" only meant "this tab stayed mounted" — kill the app and Blitz
+  // silently became Flashcards again, which reads as the app ignoring you.
+  // Web has persisted this since it shipped (`localStorage['practiceMode']`).
+  const [reviewMode, setReviewMode] = useState<ReviewMode>(DEFAULT_REVIEW_MODE)
+  useEffect(() => {
+    let cancelled = false
+    loadReviewMode().then(m => { if (!cancelled) setReviewMode(m) })
+    return () => { cancelled = true }
+  }, [])
+  const selectReviewMode = (next: ReviewMode) => {
+    setReviewMode(next)
+    void saveReviewMode(next)
+  }
   const [pendingItems, setPendingItems] = useState<PendingVocabWordDto[] | null>(null)
   const [pendingBusyId, setPendingBusyId] = useState<string | null>(null)
   const [lookupItems, setLookupItems] = useState<WordLookupDto[] | null>(null)
@@ -311,7 +325,7 @@ export default function VocabularyScreen() {
         sort={sort}
         sortOptions={SORT_OPTIONS}
         stats={stats}
-        onSelectReviewMode={m => setReviewMode(m as ReviewMode)}
+        onSelectReviewMode={selectReviewMode}
         onSelectSort={k => setSort(k as SortKey)}
         onOpenSettings={() => setSettingsOpen(true)}
         onClose={() => setViewSheetOpen(false)}

@@ -90,7 +90,7 @@ export default function ProfileScreen() {
   // controls under them, `startEdit` and `pickAvatar`, stayed open to a guest.
   // (Named rather than quoted above: `capabilityLiterals.test.ts` greps source
   // text and cannot tell a comment from a branch. Correct — it stays dumb.)
-  const { isGuest, canEditIdentity, canDeleteAccount, canSyncAcrossDevices } = capabilitiesFor(user)
+  const { isGuest, canUpload, canEditIdentity, canDeleteAccount, canSyncAcrossDevices } = capabilitiesFor(user)
   const anon = isGuest && user ? getAnonymousReader(user.id) : null
   const anonSource = anon && user ? getAnonAvatarSource(user.id) : null
   const displayName = anon ? anon.name : (user?.name || user?.email || '')
@@ -340,8 +340,14 @@ export default function ProfileScreen() {
 
       <View style={styles.menu}>
         {/* Upload space lives here rather than mid-list on Library, where it
-            was an unlabelled bar between the upload button and the search box. */}
-        <StorageQuotaRow />
+            was an unlabelled bar between the upload button and the search box.
+
+            Behind `canUpload` because upload is account-only by product choice
+            (`src/lib/capabilities.ts`). Unconditional, this screen offered a
+            guest "0 B of 50 MB used" — an allowance they are not permitted to
+            spend, on the same screen that asks them to create an account. The
+            capability was already computed one line up and simply never read. */}
+        {canUpload && <StorageQuotaRow />}
 
         {MENU_ITEMS.map(item => (
           <TouchableOpacity
@@ -465,7 +471,9 @@ export default function ProfileScreen() {
             <Text style={[styles.guestBanner, { color: colors.textSecondary }]}>{t('guest.banner')}</Text>
             <TouchableOpacity
               style={[styles.guestCta, { backgroundColor: colors.primary }]}
-              onPress={() => router.push('/(auth)/login')}
+              // The button says "Create free account", so the screen it opens
+              // has to be the Register tab. It opened on Sign in.
+              onPress={() => router.push({ pathname: '/(auth)/login', params: { mode: 'register' } })}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel={t('guest.createAccount')}
