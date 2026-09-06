@@ -47,4 +47,32 @@ public class RateLimitSettingsTests
         Assert.Equal(3, Bind(("RateLimits:GuestSessionPermitLimit", "-1")).EffectiveGuestSessionPermitLimit);
     }
 
+    // The other three knobs, added when the limiter started actually running: user-login, clip and
+    // account-delete all have production values the integration suite legitimately exceeds from a
+    // single host. Same contract as the guest one in all three cases.
+
+    [Fact]
+    public void UserLoginPermitLimit_UnconfiguredConfiguredAndInvalid_BehavesLikeGuestKnob()
+    {
+        Assert.Equal(10, Bind().EffectiveUserLoginPermitLimit);
+        Assert.Equal(100, Bind(("RateLimits:UserLoginPermitLimit", "100")).EffectiveUserLoginPermitLimit);
+        Assert.Equal(10, Bind(("RateLimits:UserLoginPermitLimit", "0")).EffectiveUserLoginPermitLimit);
+        Assert.Equal(10, Bind(("RateLimits:UserLoginPermitLimit", "-5")).EffectiveUserLoginPermitLimit);
+    }
+
+    [Fact]
+    public void ClipPermitLimit_UnconfiguredConfiguredAndInvalid_BehavesLikeGuestKnob()
+    {
+        Assert.Equal(20, Bind().EffectiveClipPermitLimit);
+        Assert.Equal(200, Bind(("RateLimits:ClipPermitLimit", "200")).EffectiveClipPermitLimit);
+        Assert.Equal(20, Bind(("RateLimits:ClipPermitLimit", "0")).EffectiveClipPermitLimit);
+    }
+
+    [Fact]
+    public void AccountDeletePermitLimit_UnconfiguredConfiguredAndInvalid_BehavesLikeGuestKnob()
+    {
+        Assert.Equal(3, Bind().EffectiveAccountDeletePermitLimit);
+        Assert.Equal(50, Bind(("RateLimits:AccountDeletePermitLimit", "50")).EffectiveAccountDeletePermitLimit);
+        Assert.Equal(3, Bind(("RateLimits:AccountDeletePermitLimit", "-1")).EffectiveAccountDeletePermitLimit);
+    }
 }
