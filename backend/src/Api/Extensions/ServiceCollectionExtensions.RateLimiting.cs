@@ -11,7 +11,12 @@ public static partial class ServiceCollectionExtensions
     /// All rate-limiter policies (login, device grant, guest, clip/upload, TTS,
     /// translation, dictionary, explain, semantic search, RAG, agents, crews,
     /// account-delete) plus the shared rejection/Retry-After behavior.
-    /// Verbatim move from Program.cs — no policy, limit, or window changed.
+    /// <para>
+    /// Originally a verbatim move from Program.cs. Since then two things changed, both forced by the
+    /// limiter actually being reached (it used to sit above <c>UseRouting</c> and never ran):
+    /// <c>admin-login</c>/<c>user-login</c> are now per-IP rather than one global bucket, and
+    /// <c>user-login</c>'s permit limit is configurable. No window and no ceiling was loosened.
+    /// </para>
     /// </summary>
     public static IServiceCollection AddTextStackRateLimiting(
         this IServiceCollection services,
@@ -25,17 +30,40 @@ public static partial class ServiceCollectionExtensions
 
         services.AddRateLimiter(options =>
         {
-            options.AddFixedWindowLimiter("admin-login", opt =>
+            // admin-login / user-login are per-IP, like every other policy in this file. They were
+            // GLOBAL single buckets — 5 and 10 attempts per minute for the entire site — which was
+            // harmless only for as long as the limiter never ran (it sat above UseRouting, so no
+            // per-endpoint policy was ever consulted; see Program.cs). Switching it on made that
+            // shape live, and a global login bucket is not a stronger brute-force defence: an
+            // attacker with a handful of IPs defeats it either way, while any single script hitting
+            // /auth/login ten times locks EVERY user out of signing in — including password reset,
+            // which shares the policy. Partitioning keeps the same per-attacker ceiling and removes
+            // the collateral.
+            options.AddPolicy("admin-login", httpContext =>
             {
-                opt.Window = TimeSpan.FromMinutes(1);
-                opt.PermitLimit = 5;
-                opt.QueueLimit = 0;
+                var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromMinutes(1),
+                    PermitLimit = 5,
+                    QueueLimit = 0,
+                });
             });
-            options.AddFixedWindowLimiter("user-login", opt =>
+            // The permit limit is a deployment knob for the same reason the guest one is: the
+            // guest-merge suite makes ~15 register+login calls from a single host inside one minute,
+            // so at the production value CI would throttle itself into skips and report green with
+            // no merge coverage at all. Window, partition key and policy are identical everywhere —
+            // a knob, not a test-only bypass.
+            var userLoginPermitLimit = rateLimits.EffectiveUserLoginPermitLimit;
+            options.AddPolicy("user-login", httpContext =>
             {
-                opt.Window = TimeSpan.FromMinutes(1);
-                opt.PermitLimit = 10;
-                opt.QueueLimit = 0;
+                var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromMinutes(1),
+                    PermitLimit = userLoginPermitLimit,
+                    QueueLimit = 0,
+                });
             });
             // Device Authorization Grant (RFC 8628, AI-050a) — all per-IP.
             // device-code: CLI requests a device_code; one per CLI session, 5/min is ample.
@@ -95,13 +123,17 @@ public static partial class ServiceCollectionExtensions
             // "Send to TextStack" web clip receiver — per-IP cap. Each clip queues an
             // ingestion job + stores HTML, so this blocks scripted bulk-clipping while
             // staying generous for a human saving a handful of articles in a session.
+            // Permit limit is a knob for the same reason as the guest one: a dozen integration test
+            // classes seed a user book by clipping one, so a single suite run exceeds 20 from one
+            // host and they all skip on "clip seed unavailable" instead of running.
+            var clipPermitLimit = rateLimits.EffectiveClipPermitLimit;
             options.AddPolicy("clip", httpContext =>
             {
                 var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
                     Window = TimeSpan.FromMinutes(1),
-                    PermitLimit = 20,
+                    PermitLimit = clipPermitLimit,
                     QueueLimit = 0,
                 });
             });
@@ -306,13 +338,16 @@ public static partial class ServiceCollectionExtensions
             // never needs to call this more than once, so a tight per-IP cap blocks abuse
             // (e.g. scripted churn against the cascade delete) while staying out of the way
             // of a legitimate retry after a transient failure.
+            // Knob, same doctrine: the GDPR delete suite legitimately calls this four times in one
+            // class, which is one more than production wants to allow a human.
+            var accountDeletePermitLimit = rateLimits.EffectiveAccountDeletePermitLimit;
             options.AddPolicy("account-delete", httpContext =>
             {
                 var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
                     Window = TimeSpan.FromMinutes(5),
-                    PermitLimit = 3,
+                    PermitLimit = accountDeletePermitLimit,
                     QueueLimit = 0,
                 });
             });

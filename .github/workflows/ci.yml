@@ -374,8 +374,27 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Everything EXCEPT the rate-limit enforcement test. That one deliberately drains the whole
+      # guest-session bucket (60 consecutive POST /auth/guest until one is rejected), and the bucket
+      # is keyed on client IP with a 5-minute window — in CI every request comes from one host, so
+      # sharing a window with the functional guest suite means one of them starves. Measured: run
+      # together, the enforcement test finishes in ~2.7s and fifteen guest/merge tests then SKIP,
+      # which is precisely the "green with no coverage" outcome the guest PR exists to prevent.
+      # Raising the limit cannot resolve it: the enforcement test consumes limit+1 by construction.
       - name: Integration tests
-        run: dotnet test tests/TextStack.IntegrationTests
+        run: dotnet test tests/TextStack.IntegrationTests --filter "FullyQualifiedName!~RateLimitEnforcement"
+        env:
+          API_URL: http://localhost:8080
+
+      # Restarting the API drops the in-memory limiter partitions, so this starts from a full
+      # bucket and cannot be starved by the run above.
+      - name: Restart API to reset rate-limiter state
+        run: |
+          docker compose up -d --force-recreate --no-deps api
+          timeout 120 bash -c 'until curl -sf http://localhost:8080/health; do sleep 3; done'
+
+      - name: Rate limit enforcement test (isolated)
+        run: dotnet test tests/TextStack.IntegrationTests --filter "FullyQualifiedName~RateLimitEnforcement"
         env:
           API_URL: http://localhost:8080
 
@@ -406,6 +425,9 @@ jobs:
           ASPNETCORE_ENVIRONMENT=Development
           ENABLE_TEST_AUTH=true
           GUEST_SESSION_PERMIT_LIMIT=50
+          USER_LOGIN_PERMIT_LIMIT=100
+          CLIP_PERMIT_LIMIT=200
+          ACCOUNT_DELETE_PERMIT_LIMIT=50
           GUEST_DAILY_ENRICHMENT_CAP=3
           ADMIN_EMAIL=admin@textstack.app
           ADMIN_PASSWORD=admin

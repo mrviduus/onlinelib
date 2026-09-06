@@ -86,18 +86,60 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-// Forward headers from reverse proxy (nginx/cloudflare)
+// Forward headers from the reverse proxy chain (Cloudflare → cloudflared → nginx → here).
+//
+// This block decides what Connection.RemoteIpAddress is, and therefore what every per-IP rate-limit
+// partition is keyed on. It was previously "trust everything, one hop", which was harmless only
+// while the limiter never ran (it sat above UseRouting). Turning the limiter on made two latent
+// defects live, both measured against the running stack:
+//
+//   1. ONE BUCKET FOR THE WHOLE INTERNET. nginx sets X-Forwarded-For with
+//      $proxy_add_x_forwarded_for, which APPENDS its own $remote_addr — and its peer is cloudflared
+//      on the same host, so the rightmost entry is 127.0.0.1 on every request ever made. With the
+//      default ForwardLimit of 1 the middleware takes exactly that rightmost entry, so every
+//      request in production resolves to the same address. Verified here: draining the bucket with
+//      `XFF: 1.1.1.1, 9.9.9.9` then sending `XFF: 2.2.2.2, 9.9.9.9` returns 429 — a different
+//      client behind the same proxy shares the partition. Shipped as-is, "3 guest sessions per 5
+//      minutes per IP" would have meant 3 per 5 minutes for everyone on earth, and the same for
+//      translate (30/min), dictionary (60/min) and tts (120/min).
+//
+//   2. TRIVIAL BYPASS. With KnownProxies and KnownIPNetworks both empty, ANY caller is trusted to
+//      declare its own address. Verified: after exhausting the limit, three requests carrying a
+//      self-chosen `X-Forwarded-For` all returned 200.
+//
+// The fix is the standard walk: trust hops only while they are inside the private ranges the proxy
+// chain actually lives in, and keep walking right-to-left until the first address that is not.
+// Cloudflare appends the true client IP to X-Forwarded-For at the edge, so anything a caller
+// injects ends up to the LEFT of it and is never reached — the walk stops at the Cloudflare-written
+// entry. Both defects close with the same change: the key becomes the real client, and it stops
+// being caller-controlled from outside the trusted network.
 var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    // Unbounded hops: the chain length is nginx + tunnel today and must not be a magic number that
+    // silently truncates to the wrong entry when a hop is added. The KnownIPNetworks list below is
+    // what bounds trust, not a count.
+    ForwardLimit = null,
 };
-// Trust all proxies in production (behind nginx/cloudflare)
 forwardedHeadersOptions.KnownIPNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
+// Loopback + RFC1918 + IPv6 loopback/ULA: every hop between the public internet and this process
+// (cloudflared, nginx, the docker bridge) is inside one of these, and no genuine client is.
+foreach (var network in new[]
+{
+    new System.Net.IPNetwork(System.Net.IPAddress.Parse("127.0.0.0"), 8),
+    new System.Net.IPNetwork(System.Net.IPAddress.Parse("10.0.0.0"), 8),
+    new System.Net.IPNetwork(System.Net.IPAddress.Parse("172.16.0.0"), 12),
+    new System.Net.IPNetwork(System.Net.IPAddress.Parse("192.168.0.0"), 16),
+    new System.Net.IPNetwork(System.Net.IPAddress.Parse("::1"), 128),
+    new System.Net.IPNetwork(System.Net.IPAddress.Parse("fc00::"), 7),
+})
+{
+    forwardedHeadersOptions.KnownIPNetworks.Add(network);
+}
 app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseCors();
-app.UseRateLimiter();
 app.UseExceptionMiddleware();
 
 // Static files for uploaded content (author photos, book covers)
@@ -236,6 +278,26 @@ app.UseLanguageContext();
 
 // Explicit routing after middleware so path rewriting works
 app.UseRouting();
+
+// Rate limiting MUST come after UseRouting. `RequireRateLimiting("policy")` attaches
+// EnableRateLimitingAttribute to ENDPOINT METADATA, and the limiter reads that metadata off
+// HttpContext.GetEndpoint() — which is null until routing has matched. While this call sat above
+// UseRouting (next to UseCors) every per-endpoint policy in AddTextStackRateLimiting was inert:
+// 60 consecutive anonymous POST /auth/guest from one IP returned 60x 200 and zero 429, and no
+// GlobalLimiter was configured to cover the gap. Anonymous User-row creation was unbounded.
+//
+// Placement within the post-routing segment, and why each neighbour sits where it does:
+//   * ForwardedHeaders is still FIRST in the whole pipeline, so Connection.RemoteIpAddress is the
+//     real client here exactly as it was before — every per-IP partition key is unaffected.
+//   * ExceptionMiddleware now WRAPS the limiter instead of sitting under it; a throw from a policy
+//     factory becomes a handled 500 rather than an unhandled one.
+//   * SiteContext/Language must stay above UseRouting (they rewrite the path that routing matches),
+//     so a rejected request does pay for those two. Both are in-memory for this path — SiteContext
+//     skips /auth/ outright and the language middleware is string parsing — so a 429 still costs no
+//     database work.
+//   * GuestActivity is deliberately BELOW this line: it writes users.LastActiveAt, and a request
+//     the limiter rejected must not reach the database at all.
+app.UseRateLimiter();
 
 // Guest activity tracking (update LastActiveAt, debounced hourly)
 app.UseMiddleware<Api.Middleware.GuestActivityMiddleware>();

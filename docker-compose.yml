@@ -67,6 +67,15 @@ services:
       # guest suites need >=6 guests and every request there comes from one host. A knob, not
       # a bypass: the limiter policy itself is identical in both.
       RateLimits__GuestSessionPermitLimit: ${GUEST_SESSION_PERMIT_LIMIT:-3}
+      # Register/login/password-reset attempts per IP per minute. Production keeps 10; CI raises it
+      # because the guest-merge suite makes ~15 of them from one host inside a minute and would
+      # otherwise throttle itself into skips — a green run with no merge coverage.
+      RateLimits__UserLoginPermitLimit: ${USER_LOGIN_PERMIT_LIMIT:-10}
+      # Web clips per IP per minute, and account hard-deletes per IP per 5 min. Production keeps
+      # 20 and 3; CI raises both because the integration suite seeds user books by clipping and the
+      # GDPR delete test legitimately deletes four times.
+      RateLimits__ClipPermitLimit: ${CLIP_PERMIT_LIMIT:-20}
+      RateLimits__AccountDeletePermitLimit: ${ACCOUNT_DELETE_PERMIT_LIMIT:-3}
       # New vocabulary words a GUEST may push through paid LLM enrichment per UTC day. Production
       # keeps 50 (appsettings). CI lowers it so the cap is reachable in a test: proving that
       # promoting a parked lookup respects it takes `cap` real saves, and 50 is not testable.
