@@ -3,8 +3,8 @@
 **Area**: Auth, Reader, Vocabulary, Profile
 **Priority**: Critical — this is the feature the PR exists to deliver
 **Platform**: Android emulator (or device). Nothing here is testable on web.
-**Last Tested**: —
-**Status**: Not yet run
+**Last Tested**: 2026-09-06 (Android emulator)
+**Status**: Run — see `docs/qa/reports/2026-09-06-android-guest-loop.md`
 
 ---
 
@@ -214,20 +214,20 @@ It only appears when the access token has expired, which takes an hour.
 
 | Check | Expected | Actual |
 |-------|----------|--------|
-| First screen | Discover, no wall | |
-| `POST /auth/guest` on first book | exactly 1 | |
-| Save button for a guest | present | |
-| Language question | in the sheet, book not left | |
-| Word → Vocabulary → review | works | |
-| Register → word survives | yes | |
-| **Register after >1h idle → word survives** | **yes** | |
-| Login into existing account | both sets present, no 500 | |
-| Upload tab for a guest | hidden | |
-| Librarian/Tutor | wall, and no model call | |
-| Translate / dictionary / TTS | still work | |
-| Airplane mode, cached book | opens ~1s | |
-| Rate-limited, no session | book still opens | |
-| Guest sign out | destructive confirm | |
+| First screen | Discover, no wall | **Pass** — Discover, no onboarding, no account prompt |
+| `POST /auth/guest` on first book | exactly 1 | **Pass** — exactly 1, on two independent fresh installs (134 ms / 100 ms) |
+| Save button for a guest | present | **Pass** |
+| Language question | in the sheet, book not left | **Pass** — no `/translate` sent before the question; one tap to choose |
+| Word → Vocabulary → review | works | **Pass** — no red error; card renders and is answerable; Stats renders |
+| Register → word survives | yes | **Pass** — 3/3 words, progress, language; account `createdAt` = guest mint time |
+| **Register after >1h idle → word survives** | **yes** | **Pass on the retry.** Via Profile the token is refreshed before the form is reachable (D2), so that run proved nothing. Re-run via Discover → Ask the librarian → Register, token 21 min expired: app fired `refresh-mobile` proactively, then `register` 200, word survived, `createdAt` = guest mint |
+| Login into existing account | both sets present, no 500 | **Pass** — 200; 5 words; account's `fr` not overwritten by guest's `ru` |
+| Upload tab for a guest | hidden | **Pass** |
+| Librarian/Tutor | wall, and no model call | **Pass** — zero requests of any kind |
+| Translate / dictionary / TTS | still work | Translate + TTS **pass**. Dictionary returns 503 in ~3.0 s — **upstream outage**, not ours |
+| Airplane mode, cached book | opens ~1s | **Pass, ~0.5 s** — but only for an explicitly *downloaded* book; reading online does not cache |
+| Rate-limited, no session | book still opens | **Pass** — 429 then chapter 68 ms later. Save in that state prompts for an account with an explicit "this one wasn't kept" toast |
+| Guest sign out | destructive confirm | **Pass** — names what is lost; cancelling changes nothing |
 
 ---
 
@@ -235,7 +235,10 @@ It only appears when the access token has expired, which takes an hour.
 
 | Date | Issue | Status |
 |------|-------|--------|
-| — | — | — |
+| 2026-09-06 | ~~**D1** — word saved while rate-limited is silently discarded~~ | **Withdrawn** — tester error. The toast ("Saving words needs an account — this one wasn't kept") fires for 3.6 s; screenshots were taken after it expired |
+| 2026-09-06 | **D2** — §4b cannot reach its own bug via the Profile route; Profile refreshes the token first. Use Discover → Ask the librarian → Register instead, and check the log for no prior `refresh-mobile` | Open (scenario fix) |
+| 2026-09-06 | **D3** — Blitz review style is selected and persisted but the session still runs Flashcards | Open — [#558](https://github.com/mrviduus/textstack/issues/558) |
+| 2026-09-06 | **D4** — Flashcards mode fetches a dictionary definition it structurally cannot display | Open — [#559](https://github.com/mrviduus/textstack/issues/559) |
 
 ---
 
@@ -243,4 +246,4 @@ It only appears when the access token has expired, which takes an hour.
 
 | Date | Tester | Result | Notes |
 |------|--------|--------|-------|
-| — | — | — | — |
+| 2026-09-06 | Claude (emulator) | Loop holds; 0 defects in the guest loop, 3 elsewhere (D2 scenario, #558, #559); D1 withdrawn | Pixel 7 Pro (API 17) + Medium_Phone_API_36, prod backend, local debug build. Traffic captured through a logging proxy. Not run: haptics, landscape (app is portrait-locked), the two true interleave races, real hardware |
