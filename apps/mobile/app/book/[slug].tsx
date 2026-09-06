@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Share } from 'react-native'
 import { Image } from 'expo-image'
 import { useFocusEffect, useLocalSearchParams, useRouter, Stack } from 'expo-router'
@@ -11,6 +11,7 @@ import { useTheme } from '../../src/context/ThemeContext'
 import { useLanguage } from '../../src/context/LanguageContext'
 import { useToast } from '../../src/context/ToastContext'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
+import { useSheetMount } from '../../src/hooks/useSheetMount'
 import {
   isBookFullyCached,
   getAllCachedBooks,
@@ -30,16 +31,47 @@ export default function BookDetailScreen() {
   const toast = useToast()
   const { downloads, startDownload, cancelDownload, removeDownload, retryFailed } = useDownload()
   const [book, setBook] = useState<BookDetail | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [bookLoading, setBookLoading] = useState(true)
+  /**
+   * Have the session-dependent follow-ups (library membership + progress)
+   * answered yet?
+   *
+   * A one-way latch, never set back to `true`. It exists because the single
+   * `loading` flag used to cover BOTH round-trips: library and progress were
+   * awaited inside `getBook`'s own `.then`, so the skeleton stayed up until the
+   * hero could be painted with the right button. Splitting the fetches into two
+   * effects (see below) would otherwise paint "Start Reading" for one RTT on a
+   * book the reader is 40% through.
+   *
+   * Seeded from `isAuthenticated` at mount, so a signed-out reader is never
+   * held for a fetch that will not happen; and because it is never re-raised, a
+   * session that arrives later (guest minting inside the reader) refreshes the
+   * data underneath without throwing this screen back to a skeleton.
+   */
+  const [sessionLoading, setSessionLoading] = useState(isAuthenticated)
+  // `book != null` so a failed load falls through to the error screen instead
+  // of sitting on a skeleton forever waiting for follow-ups that never run.
+  const loading = bookLoading || (sessionLoading && book != null)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [cached, setCached] = useState(false)
   const [inLibrary, setInLibrary] = useState(false)
   const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
+  // Not mounted until first opened — see useSheetMount. This screen is public,
+  // so the sheet's `useCollections` was 401ing on every open for a signed-out
+  // reader.
+  const collectionSheetMounted = useSheetMount(collectionSheetOpen)
   const [continueSlug, setContinueSlug] = useState<string | null>(null)
   // How far in the reader is, so the button says where it will take them. The shelf card already
   // showed "11% complete" while this screen offered a bare "Continue Reading" — the same reader,
   // the same book, one of the two screens keeping it to itself.
   const [continuePct, setContinuePct] = useState<number | null>(null)
+  /**
+   * The edition id whose session data has already been loaded once. The focus
+   * refresh below uses it to tell "the screen just came back into view" apart
+   * from "the initial load has not finished yet", which is the difference
+   * between a useful refetch and a duplicate one.
+   */
+  const progressLoadedForRef = useRef<string | null>(null)
   const [showAllChapters, setShowAllChapters] = useState(false)
   // True when the page is rendering a minimal view built from the offline
   // SQLite cache because the server was unreachable. Used to hide
@@ -49,10 +81,26 @@ export default function BookDetailScreen() {
   // Bump to force a refetch when the user presses Retry (P1-4).
   const [reloadTick, setReloadTick] = useState(0)
 
+  /**
+   * The public book. Deliberately NOT keyed on `isAuthenticated`.
+   *
+   * It used to be, and the session-dependent follow-ups lived inside this
+   * `.then`. That made a guest's first book open fetch `GET /books/{slug}`
+   * twice: `ReaderSessionGate` mints an anonymous session the moment the reader
+   * mounts, `isAuthenticated` flips false→true GLOBALLY, and this screen is
+   * still mounted underneath (the reader is pushed, not replaced) — so it
+   * re-fetched the same public book at the exact moment the gate was fetching
+   * it for the reader. `readerSessionGate.ts` freezes `isAuthenticated` for the
+   * reader's own lifetime; nothing freezes it for the screens behind it.
+   *
+   * The book does not change when a session appears, so a session appearing is
+   * not a reason to re-fetch it. Only what actually depends on the session
+   * moves, into the effect below.
+   */
   useEffect(() => {
     if (!slug) return
     let cancelled = false
-    setLoading(true)
+    setBookLoading(true)
     setFetchError(null)
     setOfflineMode(false)
     const api = createBooksApi(language)
@@ -64,32 +112,6 @@ export default function BookDetailScreen() {
           setCached(await isBookFullyCached(b.id))
         } catch (err) {
           console.warn('isBookFullyCached failed:', err)
-        }
-        if (isAuthenticated) {
-          // Library + progress are non-fatal for the detail page — if they
-          // fail we still render the book, just without the saved/continue
-          // state. We log the error instead of swallowing silently (P1-4/P3-2).
-          try {
-            const lib = await libraryApi.getLibrary()
-            if (!cancelled) setInLibrary(lib.some(item => item.editionId === b.id))
-          } catch (err) {
-            console.warn('getLibrary failed on book detail:', err)
-          }
-          try {
-            const p = await readingProgressApi.getProgress(b.id)
-            // Not `p?.chapterSlug` alone: a PDF read in Original layout is
-            // chapterless, its position is a `page:<N>` locator, and looking
-            // only at the slug made every half-read PDF report "never opened".
-            // `my-books/[id].tsx` already carries this fallback; the catalog
-            // screen did not.
-            if (!cancelled) {
-              const slug = resumeChapterSlug(p?.chapterSlug, p?.locator, b.chapters)
-              if (slug) setContinueSlug(slug)
-              setContinuePct(storedBookPercent(p))
-            }
-          } catch (err) {
-            console.warn('getProgress failed on book detail:', err)
-          }
         }
       })
       .catch(async (e) => {
@@ -149,11 +171,125 @@ export default function BookDetailScreen() {
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setBookLoading(false)
       })
 
     return () => { cancelled = true }
-  }, [slug, isAuthenticated, language, reloadTick])
+  }, [slug, language, reloadTick])
+
+  /**
+   * Everything that only makes sense once there is a session: is this book on
+   * the shelf, and how far in is the reader. Keyed on the book id and on
+   * `isAuthenticated`, so a session arriving mid-life (the guest mint above)
+   * refreshes exactly this and nothing else.
+   *
+   * Skipped in offline mode: `book` there is a stub assembled from the SQLite
+   * cache because the server was unreachable, and these are the two calls that
+   * cannot be made.
+   */
+  useEffect(() => {
+    const editionId = book?.id
+    // No book yet: `bookLoading` is still holding the skeleton, so there is
+    // nothing to release and nothing to fetch.
+    if (!editionId) return
+    if (!isAuthenticated || offlineMode) {
+      // Nothing will be fetched, so the question is already answered — and the
+      // focus refresh below is still armed (offline it re-reads local progress).
+      progressLoadedForRef.current = editionId
+      setSessionLoading(false)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      // Library + progress are non-fatal for the detail page — if they fail we
+      // still render the book, just without the saved/continue state. We log
+      // the error instead of swallowing silently (P1-4/P3-2).
+      try {
+        const lib = await libraryApi.getLibrary()
+        if (!cancelled) setInLibrary(lib.some(item => item.editionId === editionId))
+      } catch (err) {
+        console.warn('getLibrary failed on book detail:', err)
+      }
+      try {
+        const p = await readingProgressApi.getProgress(editionId)
+        // Not `p?.chapterSlug` alone: a PDF read in Original layout is
+        // chapterless, its position is a `page:<N>` locator, and looking
+        // only at the slug made every half-read PDF report "never opened".
+        // `my-books/[id].tsx` already carries this fallback; the catalog
+        // screen did not.
+        if (!cancelled) {
+          const resume = resumeChapterSlug(p?.chapterSlug, p?.locator, book?.chapters)
+          if (resume) setContinueSlug(resume)
+          setContinuePct(storedBookPercent(p))
+        }
+      } catch (err) {
+        console.warn('getProgress failed on book detail:', err)
+      }
+      if (!cancelled) {
+        // Whatever happened, the question "has the session data landed" is now
+        // answered — drop the skeleton. Marking the id lets the focus refresh
+        // below tell a re-entry apart from this first pass.
+        progressLoadedForRef.current = editionId
+        setSessionLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+    // `book?.chapters` is read inside but deliberately not a dep: it is fixed
+    // for a given edition id, and listing the array would re-run this on every
+    // book object identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book?.id, isAuthenticated, offlineMode])
+
+  /**
+   * Re-read the progress when this screen comes back into view.
+   *
+   * The reader is pushed and left with `router.back()`, so this screen is never
+   * unmounted and neither effect above re-runs — none of their deps change. QA
+   * read a chapter, backed out, and met "Start Reading" and the pre-reader
+   * percentage on a book they had just moved through. The write side was fine;
+   * only the read was stale. Same fix, same shape, as `my-books/[id].tsx`.
+   *
+   * Only the progress, not the book: a book's own fields do not change by
+   * reading it.
+   *
+   * `progressLoadedForRef` is the guard against racing the initial load. This
+   * callback's identity changes when the book id lands, which re-runs it while
+   * still focused — at that moment the effect above has not answered yet, the
+   * ref does not match, and this returns rather than firing a second
+   * `GET /me/progress/{id}`. It only starts doing work on a genuine re-focus.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      const editionId = book?.id
+      if (!editionId || progressLoadedForRef.current !== editionId) return
+      let cancelled = false
+      if (offlineMode) {
+        // Offline the reader still writes progress locally, so the same
+        // staleness applies — it is just answered from AsyncStorage. Mirrors
+        // the offline branch of the load effect, which sets the slug only.
+        getLocalProgress(editionId)
+          .then(local => {
+            if (cancelled || !local?.chapterSlug) return
+            setContinueSlug(local.chapterSlug)
+          })
+          .catch(() => {})
+        return () => { cancelled = true }
+      }
+      if (!isAuthenticated) return
+      readingProgressApi.getProgress(editionId)
+        .then(p => {
+          if (cancelled || !p) return
+          const resume = resumeChapterSlug(p.chapterSlug, p.locator, book?.chapters)
+          if (resume) setContinueSlug(resume)
+          setContinuePct(storedBookPercent(p))
+        })
+        // Offline, or the request failed: keep whatever the screen already
+        // shows rather than blanking a good value with a failed refresh.
+        .catch(() => {})
+      return () => { cancelled = true }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [book?.id, isAuthenticated, offlineMode]),
+  )
 
   const dl = book ? downloads.get(book.id) : undefined
   const isDownloading = dl?.status === 'downloading'
@@ -396,13 +532,13 @@ export default function BookDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        <AddToCollectionSheet
+        {collectionSheetMounted && <AddToCollectionSheet
           visible={collectionSheetOpen}
           bookId={book.id}
           bookType="savedbook"
           onClose={() => setCollectionSheetOpen(false)}
           onAdded={(name) => toast.show({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
-        />
+        />}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Chapters</Text>
         {(showAllChapters ? book.chapters : book.chapters.slice(0, 10)).map((ch) => (

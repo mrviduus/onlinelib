@@ -15,6 +15,7 @@ import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { EmptyState } from '../../src/components/ui/EmptyState'
 import { trackBookOpened } from '../../src/lib/analytics'
 import { AddToCollectionSheet } from '../../src/components/library/AddToCollectionSheet'
+import { useSheetMount } from '../../src/hooks/useSheetMount'
 
 export default function UserBookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -31,6 +32,8 @@ export default function UserBookDetailScreen() {
   const [deleting, setDeleting] = useState(false)
   const [enriching, setEnriching] = useState(false)
   const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
+  // Same reason as everywhere else this sheet appears — see useSheetMount.
+  const collectionSheetMounted = useSheetMount(collectionSheetOpen)
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unmountedRef = useRef(false)
 
@@ -526,13 +529,13 @@ export default function UserBookDetailScreen() {
           </View>
         )}
 
-        <AddToCollectionSheet
+        {collectionSheetMounted && <AddToCollectionSheet
           visible={collectionSheetOpen}
           bookId={isReady ? book.id : null}
           bookType="userbook"
           onClose={() => setCollectionSheetOpen(false)}
           onAdded={(name) => showToast({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
-        />
+        />}
 
         {/* Chapter list */}
         {isReady && book.chapters.length > 0 && (

@@ -21,6 +21,7 @@ import { OfflineBanner } from '../../src/components/ui/OfflineBanner'
 import { getAllCachedBooks } from '../../src/lib/offlineDb'
 import { FirstBookState } from '../../src/components/library/FirstBookState'
 import { LibraryViewSheet, type LibrarySource } from '../../src/components/library/LibraryViewSheet'
+import { useSheetMount } from '../../src/hooks/useSheetMount'
 import { LibrarySearch } from '../../src/components/library/LibrarySearch'
 import { StorageQuotaRow } from '../../src/components/library/StorageQuotaRow'
 import { LibraryStatusTabs } from '../../src/components/library/LibraryStatusTabs'
@@ -50,6 +51,9 @@ export default function LibraryScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [source, setSource] = useState<LibrarySource>('all')
   const [sheetOpen, setSheetOpen] = useState(false)
+  // The sheet's `useCollections` fired `GET /me/library/collections` on every
+  // tab open just by being in the tree. See useSheetMount.
+  const sheetMounted = useSheetMount(sheetOpen)
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
   const [collectionSavedIds, setCollectionSavedIds] = useState<Set<string> | null>(null)
   const [collectionUploadIds, setCollectionUploadIds] = useState<Set<string> | null>(null)
@@ -372,7 +376,7 @@ export default function LibraryScreen() {
         viewMode={viewMode}
         listHeader={listHeader}
       />
-      <LibraryViewSheet
+      {sheetMounted && <LibraryViewSheet
         visible={sheetOpen}
         source={source}
         counts={{ all: library.length + userBooks.length, uploads: userBooks.length, catalog: library.length }}
@@ -384,7 +388,7 @@ export default function LibraryScreen() {
         onSelectViewMode={toggleView}
         onCollectionSelect={setActiveCollectionId}
         onClose={() => setSheetOpen(false)}
-      />
+      />}
     </View>
   )
 }

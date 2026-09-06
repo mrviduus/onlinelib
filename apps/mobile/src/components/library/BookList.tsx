@@ -13,6 +13,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { useToast } from '../../context/ToastContext'
 import { fonts } from '../../theme/typography'
 import { AddToCollectionSheet } from './AddToCollectionSheet'
+import { useSheetMount } from '../../hooks/useSheetMount'
 import { BookStatusBadge } from './BookStatusBadge'
 import { GeneratedCover } from './GeneratedCover'
 import { useBookActions } from '../../hooks/useBookActions'
@@ -69,6 +70,8 @@ export function BookList({
 
   const { showSavedActions, showUploadActions } = useBookActions()
   const [collectionTarget, setCollectionTarget] = useState<LibraryEntry | null>(null)
+  // Same reason as everywhere else this sheet appears — see useSheetMount.
+  const collectionSheetMounted = useSheetMount(!!collectionTarget)
 
   const handleAction = (e: LibraryEntry) => {
     if (e.kind === 'saved') {
@@ -273,13 +276,13 @@ export function BookList({
         columnWrapperStyle={viewMode === 'grid' ? { gap: 10 } : undefined}
         renderItem={({ item }) => renderEntry(item)}
       />
-      <AddToCollectionSheet
+      {collectionSheetMounted && <AddToCollectionSheet
         visible={!!collectionTarget}
         bookId={targetId}
         bookType={collectionTarget?.kind === 'upload' ? 'userbook' : 'savedbook'}
         onClose={() => setCollectionTarget(null)}
         onAdded={(name) => showToast({ message: t('library.actions.addedToCollection').replace('{{name}}', name), variant: 'success' })}
-      />
+      />}
     </>
   )
 }
