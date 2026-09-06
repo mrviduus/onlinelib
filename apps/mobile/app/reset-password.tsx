@@ -92,7 +92,11 @@ export default function ResetPasswordScreen() {
                 placeholderTextColor={colors.textSecondary}
                 secureTextEntry
                 value={password}
-                onChangeText={setPassword}
+                // Same defect as the sign-in form: the length error cleared only
+                // on the next submit, so it stayed red while the user typed the
+                // characters that fixed it. This is the first screen after a
+                // reset email, so it is the worst place to look broken.
+                onChangeText={text => { setPassword(text); if (error) setError('') }}
                 autoFocus
                 autoCapitalize="none"
                 autoCorrect={false}

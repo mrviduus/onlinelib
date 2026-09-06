@@ -9,6 +9,7 @@ import { useLanguage } from '../../src/context/LanguageContext'
 import { useTts } from '../../src/hooks/useTts'
 import { useHaptics } from '../../src/hooks/useHaptics'
 import { useVocabularyReview } from '../../src/hooks/useVocabularyReview'
+import { reviewModeFromParam } from '../../src/lib/reviewMode'
 import { LoadingScreen } from '../../src/components/ui/LoadingScreen'
 import { PressableScale } from '../../src/components/ui/PressableScale'
 import { MultipleChoiceCard } from '../../src/components/vocabulary/MultipleChoiceCard'
@@ -25,6 +26,10 @@ export default function VocabularyReviewScreen() {
   const params = useLocalSearchParams<{ limit?: string; reviewMode?: string; cluster?: string; practice?: string }>()
   const clusterId = typeof params.cluster === 'string' ? params.cluster : null
   const practiceMode = params.practice === '1' || params.practice === 'true'
+  // The mode this session starts in, as a plain value — the point being that it
+  // is NOT hook state. See `reviewModeFromParam` for the failure that made this
+  // necessary (#558); web derives it the same way and for the same reason.
+  const initialReviewMode = reviewModeFromParam(params.reviewMode)
 
   const [batchSize, setBatchSize] = useState(() => {
     const v = parseInt(params.limit || String(DEFAULT_BATCH_SIZE), 10)
@@ -47,26 +52,27 @@ export default function VocabularyReviewScreen() {
   const haptics = useHaptics()
   const sessionStartRef = useRef(Date.now())
 
-  // Init review mode from params
-  useEffect(() => {
-    if (params.reviewMode === 'classic' || params.reviewMode === 'blitz') {
-      review.setReviewMode(params.reviewMode)
-    }
-    // Intentionally only on mount — params shouldn't re-trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Start session
+  // Start session.
+  //
+  // There used to be a second mount effect above this one that dispatched
+  // `review.setReviewMode(params.reviewMode)`. It is gone, and its removal is
+  // the fix: `startSession`/`startClusterSession` already call `setReviewMode`
+  // with whatever they are handed, so there is now exactly one writer of the
+  // mode during startup and nothing for React's batching to resolve in the
+  // wrong order. What is passed is `initialReviewMode`, a value derived from
+  // the params above — deliberately not `review.reviewMode`, which at mount is
+  // the closure's copy of the hook default and never the param.
   useEffect(() => {
     sessionStartRef.current = Date.now()
     if (clusterId) {
-      review.startClusterSession(clusterId, review.reviewMode)
+      review.startClusterSession(clusterId, initialReviewMode)
     } else {
-      review.startSession(batchSize, review.reviewMode, practiceMode)
+      review.startSession(batchSize, initialReviewMode, practiceMode)
     }
-    // `review` is stable per-hook, review.reviewMode read at call time.
+    // `review` is stable per-hook; `initialReviewMode` is a plain string, so
+    // listing it is a value comparison and cannot loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchSize, clusterId, practiceMode])
+  }, [batchSize, clusterId, practiceMode, initialReviewMode])
 
   // Say the word when its card appears.
   //

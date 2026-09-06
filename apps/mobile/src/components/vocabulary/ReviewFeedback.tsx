@@ -24,6 +24,13 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
   const [fetchedDef, setFetchedDef] = useState<string | null>(null)
 
   useEffect(() => {
+    // Classic mode returns the mini branch below, and that branch has no
+    // definition slot — `fetchedDef` is read only in the blitz layout. So this
+    // lookup was a network round-trip whose result was structurally
+    // unreachable: QA measured two of them at ~3s each per card, against an
+    // upstream dictionary that is currently down (#559). Fetch only what the
+    // branch about to render can actually show.
+    if (reviewMode === 'classic') return
     if (card.definition || !language) return
     let cancelled = false
     // Reset any stale result from the previous card before the new lookup lands.
@@ -39,7 +46,7 @@ export function ReviewFeedback({ card, result, isCorrect, reviewMode, onSpeak, o
       if (!cancelled) console.warn('Dictionary lookup failed:', e)
     })
     return () => { cancelled = true }
-  }, [card.word, card.definition, language])
+  }, [card.word, card.definition, language, reviewMode])
 
   // Mini feedback for classic mode.
   // Previously the whole card was `alignItems: 'center'` which made the Next

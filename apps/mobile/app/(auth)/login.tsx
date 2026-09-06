@@ -4,7 +4,7 @@ import {
   Alert, Platform, TextInput, KeyboardAvoidingView, ScrollView,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { authApi, type UserDto } from '@textstack/shared'
 import { GoogleSignin } from '@react-native-google-signin/google-signin'
 import Constants from 'expo-constants'
@@ -53,7 +53,20 @@ export default function LoginScreen() {
   const router = useRouter()
   const { signInWithTokens } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<Mode>('login')
+  // Which tab this screen opens on.
+  //
+  // It read no params at all, so "Create free account" on Profile — the one CTA
+  // whose whole job is turning a guest into an account — landed the reader on
+  // *Sign in*, with an empty password field and no account to put in it.
+  //
+  // A `useState` INITIALISER and deliberately not a `useEffect` that syncs on
+  // param change: the tabs below are the user's to switch, and a syncing effect
+  // would yank them back to Register the moment anything re-rendered after they
+  // tapped Sign in. The param decides the first frame and then has no further
+  // opinion. Everything other than `register` (including the twelve call sites
+  // that pass nothing) keeps landing on Sign in.
+  const params = useLocalSearchParams<{ mode?: string }>()
+  const [mode, setMode] = useState<Mode>(() => (params.mode === 'register' ? 'register' : 'login'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -68,6 +81,15 @@ export default function LoginScreen() {
 
   const resetForm = () => { setEmail(''); setPassword(''); setName(''); setError(''); setForgotSent(false) }
   const switchMode = (m: Mode) => { resetForm(); setMode(m) }
+
+  // Editing retires the error the edit is answering.
+  //
+  // `setError('')` ran only on the next submit, and `onChangeText` cleared
+  // nothing — so "Password must be at least 8 characters." stayed red while the
+  // user typed the ninth, tenth and fourteenth. The form was telling them they
+  // were still wrong about something they had just fixed.
+  const changeEmail = (text: string) => { setEmail(text); if (error) setError('') }
+  const changePassword = (text: string) => { setPassword(text); if (error) setError('') }
 
   const handleEmailAuth = async () => {
     // Guard: the submit button is disabled while `loading`, but keyboard
@@ -299,7 +321,7 @@ export default function LoginScreen() {
               placeholder="Email"
               placeholderTextColor={colors.textSecondary}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={changeEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -321,7 +343,7 @@ export default function LoginScreen() {
                 placeholder="Password"
                 placeholderTextColor={colors.textSecondary}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={changePassword}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
