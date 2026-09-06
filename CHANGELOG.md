@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Dictionary** — a word tap survives the dictionary API being down, and fails in 3s instead of 10 when it cannot — backend · [details](docs/changelog-archive/2026-H2.md#2026-09-06-dictionary-an-upstream-outage-stops-being-an-outage)
 - **Guest** — a reader finishes the loop — read, save a word, review it — with no account, and registering keeps every bit of it — mobile, backend · [details](docs/changelog-archive/2026-H2.md#2026-09-06-guest-the-whole-loop-without-an-account)
 - **Mobile** — a reader with no account gets an invitation, not a red error, and a Save button that is actually there — mobile, web · [details](docs/changelog-archive/2026-H2.md#2026-09-05-mobile-an-invitation-not-a-red-error)
 - **Extension** — the checks its README describes now run, and can now fail — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-02-extension-a-gate-that-could-not-fail)
