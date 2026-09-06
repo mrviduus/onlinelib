@@ -23,6 +23,7 @@ the archive; if it broke production, it belongs in `docs/incidents/`. See
 
 ## [Unreleased]
 
+- **Guest** — a reader finishes the loop — read, save a word, review it — with no account, and registering keeps every bit of it — mobile, backend · [details](docs/changelog-archive/2026-H2.md#2026-09-06-guest-the-whole-loop-without-an-account)
 - **Mobile** — a reader with no account gets an invitation, not a red error, and a Save button that is actually there — mobile, web · [details](docs/changelog-archive/2026-H2.md#2026-09-05-mobile-an-invitation-not-a-red-error)
 - **Extension** — the checks its README describes now run, and can now fail — infra · [details](docs/changelog-archive/2026-H2.md#2026-09-02-extension-a-gate-that-could-not-fail)
 - **Mobile** — crashes from testers now reach somewhere a person can read them — mobile · [details](docs/changelog-archive/2026-H2.md#2026-09-03-mobile-crash-reporting-stops-being-dormant)

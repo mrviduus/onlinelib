@@ -83,7 +83,10 @@ Two traps, both already hit by hand:
 - Match longest path first, or `/me/library` swallows `/me/library/shelves`.
 
 Sign-in is `localStorage.setItem('user', …)` — see `AuthContext`. Set it before the
-first `goto`, not after.
+first `goto`, not after. There are now **three** session states to fixture, not two: absent `user`
+(no session), a `user` with `isGuest: true` (guest session), and a `user` with `isGuest: false`
+(account). Several criteria below differ between the last two, and `POST /auth/guest` must be routed
+in the mock — the reader mounts behind `ReaderSessionGate`, which mints on open.
 
 ### A2. Delete the always-pass shape
 
@@ -99,12 +102,21 @@ The specs must encode the IA the owner asked for. **These are the acceptance cri
    and it is measurable: `boundingBox().y < viewport.height`.
 2. **Exactly three blocks above the first book**: resume card, search, filter row. No
    shelves, no carousels, no vocabulary card.
-3. **No Home tab.** Tab bar is `Library · Discover · (+) · Vocabulary · Profile`.
-4. `/` redirects to `/library` signed in, `/search` as a guest.
+3. **No Home tab.** Tab bar for an **account** is `Library · Discover · (+) · Vocabulary · Profile`.
+   The `(+)` upload tab is capability-gated (`canUpload`), so with a guest session or no session at
+   all the bar is `Library · Discover · Vocabulary · Profile` — assert both shapes, not one.
+4. `/` redirects to `/library` **only for a real account**; a guest session *and* no session both go
+   to `/search` (Discover). Since guest sessions shipped, "signed in" and "guest" are no longer
+   opposites: a guest holds tokens and `isAuthenticated` is true for them. The redirect keys on
+   `capabilitiesFor(user).isAccount` (`app/(tabs)/index.tsx`) precisely so a first launch does not
+   land on an empty Library. Three cases to cover: **no session**, **guest session**, **account**.
 5. Sign-in lands on Library, never Profile.
 6. **One merged list** — a catalog book and an upload appear together; no `Saved`/`Uploads` tabs.
 7. Source / sort / layout live in the View sheet, and switching source filters the list.
-8. Zero books → `FirstBookState` with exactly one primary CTA.
+8. Zero books → `FirstBookState` with exactly one primary CTA. Still exactly one — but **which** one
+   depends on `canUpload`: an account gets *Upload a book* with the catalog as the text link
+   underneath; a guest gets *Browse free books* primary and *Or upload your own book* as the link
+   (which routes to sign-in). Assert "exactly one primary" in both, and the label per capability.
 9. Every route reachable from the tab bar renders without an ErrorBoundary.
 10. **No dead routes**: every tappable book row navigates to a screen that is not `+not-found`.
 
@@ -162,6 +174,11 @@ Anyone updating Lane A should know the current specs reference removed things:
 - **Profile is now a visible tab**; it used to be reachable only from the Home header avatar.
 - Progress percentages were reset, so a fresh account shows empty bars until each book is
   opened once. Fixtures must not assume a stored percentage.
+- **Guest sessions exist (2026-09-06).** Opening a book mints one. "Signed out" now means *no
+  session*; a guest is a session, and most `/me/*` calls succeed for it. Any spec that used
+  "signed out" as shorthand for "no tokens" needs rereading against
+  [ADR-014](../01-architecture/adr/ADR-014-guest-sessions.md). What is still account-only: upload,
+  AI, identity editing, account deletion, silent sign-out.
 
 ---
 
