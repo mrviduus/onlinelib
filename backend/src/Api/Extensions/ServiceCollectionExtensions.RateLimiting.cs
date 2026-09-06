@@ -260,7 +260,7 @@ public static partial class ServiceCollectionExtensions
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
                     Window = TimeSpan.FromMinutes(1),
-                    PermitLimit = 30,
+                    PermitLimit = rateLimits.EffectiveRagAskPermitLimit,
                     QueueLimit = 0,
                 });
             });
